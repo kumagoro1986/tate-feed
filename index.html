@@ -1,0 +1,140 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>縦フィード</title>
+<!-- PWA設定 -->
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#000000">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<link rel="apple-touch-icon" href="icon-192.png">
+<style>
+  * { margin:0; padding:0; box-sizing:border-box; }
+  html, body { height:100%; background:#000; }
+  /* フィード全体：縦にスナップしながらスクロール */
+  #feed {
+    height:100dvh;
+    overflow-y:scroll;
+    scroll-snap-type:y mandatory;
+    scrollbar-width:none;
+  }
+  #feed::-webkit-scrollbar { display:none; }
+  /* 1本分の画面 */
+  section {
+    position:relative;
+    height:100dvh;
+    scroll-snap-align:start;
+    scroll-snap-stop:always;
+    background:#000;
+  }
+  video {
+    width:100%; height:100%;
+    object-fit:cover;
+    display:block;
+  }
+  /* 順位バッジ */
+  .rank {
+    position:absolute; top:14px; left:12px;
+    color:#fff; font:bold 15px sans-serif;
+    background:rgba(0,0,0,.45);
+    padding:4px 10px; border-radius:999px;
+  }
+  /* 現在位置（例：3 / 20） */
+  #pos {
+    position:fixed; top:14px; right:12px; z-index:10;
+    color:#fff; font:14px sans-serif;
+    background:rgba(0,0,0,.45);
+    padding:4px 10px; border-radius:999px;
+  }
+  /* 元の投稿を開くボタン */
+  .open {
+    position:absolute; right:12px; bottom:28px;
+    color:#fff; font:bold 14px sans-serif;
+    background:rgba(255,255,255,.18);
+    border:1px solid rgba(255,255,255,.5);
+    padding:10px 14px; border-radius:999px;
+    text-decoration:none;
+  }
+  /* 読み込めなかったときの表示 */
+  .err {
+    position:absolute; inset:0;
+    display:none;
+    color:#ccc; font:15px sans-serif;
+    align-items:center; justify-content:center;
+    text-align:center; padding:24px;
+  }
+</style>
+</head>
+<body>
+<div id="pos">1 / 1</div>
+<div id="feed"></div>
+
+<script>
+// ============================================================
+// ★ここを編集します★
+// 1行が動画1本です。
+//   src  : 動画ファイル(.mp4)の直リンク
+//   link : 元の投稿ページのURL（「元を見る」ボタン用。なければ "" でOK）
+// 行を増やせば動画が増えます。行の終わりのカンマを忘れずに。
+// ============================================================
+const items = [
+  { src: "https://ここに動画1のURL", link: "" },
+  { src: "https://ここに動画2のURL", link: "" },
+  { src: "https://ここに動画3のURL", link: "" },
+];
+// ============================================================
+// ここから下は触らなくてOK
+// ============================================================
+const feed = document.getElementById('feed');
+const pos = document.getElementById('pos');
+pos.textContent = "1 / " + items.length;
+
+items.forEach((it, i) => {
+  const s = document.createElement('section');
+  const v = document.createElement('video');
+  v.src = it.src;
+  v.muted = true; v.loop = true; v.playsInline = true;
+  v.preload = (i < 2) ? "auto" : "metadata";
+  // タップで音声ON/OFF
+  v.addEventListener('click', () => { v.muted = !v.muted; });
+  v.addEventListener('error', () => {
+    s.querySelector('.err').style.display = 'flex';
+  });
+  const r = document.createElement('div');
+  r.className = 'rank'; r.textContent = 'No.' + (i + 1);
+  const e = document.createElement('div');
+  e.className = 'err'; e.textContent = '読み込めませんでした';
+  s.appendChild(v); s.appendChild(r); s.appendChild(e);
+  if (it.link) {
+    const a = document.createElement('a');
+    a.className = 'open'; a.href = it.link; a.target = '_blank';
+    a.textContent = '元を見る';
+    s.appendChild(a);
+  }
+  feed.appendChild(s);
+});
+
+// 見えている1本だけ再生、前後を先読み
+const io = new IntersectionObserver(entries => {
+  entries.forEach(en => {
+    const v = en.target.querySelector('video');
+    if (en.isIntersecting) {
+      v.play().catch(() => {});
+      const idx = [...feed.children].indexOf(en.target);
+      pos.textContent = (idx + 1) + " / " + items.length;
+      [idx - 1, idx + 1].forEach(j => {
+        const n = feed.children[j];
+        if (n) n.querySelector('video').preload = "auto";
+      });
+    } else {
+      v.pause();
+    }
+  });
+}, { threshold: 0.6 });
+document.querySelectorAll('section').forEach(s => io.observe(s));
+</script>
+</body>
+</html>
