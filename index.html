@@ -66,75 +66,93 @@
     align-items:center; justify-content:center;
     text-align:center; padding:24px;
   }
+  /* データが無いときの表示 */
+  #empty {
+    color:#ccc; font:15px sans-serif;
+    height:100dvh;
+    display:none;
+    align-items:center; justify-content:center;
+    text-align:center; padding:24px;
+  }
 </style>
 </head>
 <body>
-<div id="pos">1 / 1</div>
+<div id="pos"></div>
 <div id="feed"></div>
+<div id="empty">data.json に動画が入っていません</div>
 
 <script>
 // ============================================================
-// ★ここを編集します★
-// 1行が動画1本です。
-//   src  : 動画ファイル(.mp4)の直リンク
-//   link : 元の投稿ページのURL（「元を見る」ボタン用。なければ "" でOK）
-// 行を増やせば動画が増えます。行の終わりのカンマを忘れずに。
-// ============================================================
-const items = [
-  { src: "https://ここに動画1のURL", link: "" },
-  { src: "https://ここに動画2のURL", link: "" },
-  { src: "https://ここに動画3のURL", link: "" },
-];
-// ============================================================
-// ここから下は触らなくてOK
+// 動画リストは data.json から読み込みます。
+// このHTMLは編集不要です。更新するのは data.json だけ。
+// data.json の形式:
+// {
+//   "items": [
+//     { "src": "https://…/movie1.mp4", "link": "" },
+//     { "src": "https://…/movie2.mp4", "link": "https://元の投稿URL" }
+//   ]
+// }
 // ============================================================
 const feed = document.getElementById('feed');
 const pos = document.getElementById('pos');
-pos.textContent = "1 / " + items.length;
 
-items.forEach((it, i) => {
-  const s = document.createElement('section');
-  const v = document.createElement('video');
-  v.src = it.src;
-  v.muted = true; v.loop = true; v.playsInline = true;
-  v.preload = (i < 2) ? "auto" : "metadata";
-  // タップで音声ON/OFF
-  v.addEventListener('click', () => { v.muted = !v.muted; });
-  v.addEventListener('error', () => {
-    s.querySelector('.err').style.display = 'flex';
-  });
-  const r = document.createElement('div');
-  r.className = 'rank'; r.textContent = 'No.' + (i + 1);
-  const e = document.createElement('div');
-  e.className = 'err'; e.textContent = '読み込めませんでした';
-  s.appendChild(v); s.appendChild(r); s.appendChild(e);
-  if (it.link) {
-    const a = document.createElement('a');
-    a.className = 'open'; a.href = it.link; a.target = '_blank';
-    a.textContent = '元を見る';
-    s.appendChild(a);
+fetch('data.json', { cache: 'no-store' })
+  .then(r => r.json())
+  .then(data => build(data.items || []))
+  .catch(() => build([]));
+
+function build(items) {
+  if (!items.length) {
+    document.getElementById('empty').style.display = 'flex';
+    pos.textContent = '';
+    return;
   }
-  feed.appendChild(s);
-});
+  pos.textContent = "1 / " + items.length;
 
-// 見えている1本だけ再生、前後を先読み
-const io = new IntersectionObserver(entries => {
-  entries.forEach(en => {
-    const v = en.target.querySelector('video');
-    if (en.isIntersecting) {
-      v.play().catch(() => {});
-      const idx = [...feed.children].indexOf(en.target);
-      pos.textContent = (idx + 1) + " / " + items.length;
-      [idx - 1, idx + 1].forEach(j => {
-        const n = feed.children[j];
-        if (n) n.querySelector('video').preload = "auto";
-      });
-    } else {
-      v.pause();
+  items.forEach((it, i) => {
+    const s = document.createElement('section');
+    const v = document.createElement('video');
+    v.src = it.src;
+    v.muted = true; v.loop = true; v.playsInline = true;
+    v.preload = (i < 2) ? "auto" : "metadata";
+    // タップで音声ON/OFF
+    v.addEventListener('click', () => { v.muted = !v.muted; });
+    v.addEventListener('error', () => {
+      s.querySelector('.err').style.display = 'flex';
+    });
+    const r = document.createElement('div');
+    r.className = 'rank'; r.textContent = 'No.' + (i + 1);
+    const e = document.createElement('div');
+    e.className = 'err'; e.textContent = '読み込めませんでした';
+    s.appendChild(v); s.appendChild(r); s.appendChild(e);
+    if (it.link) {
+      const a = document.createElement('a');
+      a.className = 'open'; a.href = it.link; a.target = '_blank';
+      a.textContent = '元を見る';
+      s.appendChild(a);
     }
+    feed.appendChild(s);
   });
-}, { threshold: 0.6 });
-document.querySelectorAll('section').forEach(s => io.observe(s));
+
+  // 見えている1本だけ再生、前後を先読み
+  const io = new IntersectionObserver(entries => {
+    entries.forEach(en => {
+      const v = en.target.querySelector('video');
+      if (en.isIntersecting) {
+        v.play().catch(() => {});
+        const idx = [...feed.children].indexOf(en.target);
+        pos.textContent = (idx + 1) + " / " + items.length;
+        [idx - 1, idx + 1].forEach(j => {
+          const n = feed.children[j];
+          if (n) n.querySelector('video').preload = "auto";
+        });
+      } else {
+        v.pause();
+      }
+    });
+  }, { threshold: 0.6 });
+  document.querySelectorAll('section').forEach(s => io.observe(s));
+}
 </script>
 </body>
 </html>
